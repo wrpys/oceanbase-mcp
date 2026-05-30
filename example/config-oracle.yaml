@@ -1,0 +1,20 @@
+# OceanBase MCP Server Configuration Example
+
+connection:
+  mode: mysql              # mysql | oracle (2883端口使用MySQL协议)
+  host: 10.1.12.96
+  port: 2883               # OceanBase MySQL协议端口
+  user: SLF@objiesuantest#obcluster_dev
+  password: G48cl9eAzpY#@Qspj
+  database: slf            # 默认连接的数据库
+
+safety:
+  confirm_dangerous: true  # 危险操作需要确认
+  dangerous_keywords:      # 危险关键字列表
+    - DROP
+    - TRUNCATE
+    - ALTER
+    - DELETE
+
+output:
+  max_rows: 100            # 默认最大返回行数，0 表示不限制
