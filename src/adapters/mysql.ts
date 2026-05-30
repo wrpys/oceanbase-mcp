@@ -70,7 +70,7 @@ export class MySQLAdapter extends BaseAdapter {
 
       // 如果是结果集（SELECT 等）
       if (Array.isArray(rows)) {
-        const columns = fields?.map(f => f.name) || [];
+        const columns = fields?.map((f: { name: string }) => f.name) || [];
         const { data, truncated, totalRows } = truncateRows(rows, maxRows);
 
         return {

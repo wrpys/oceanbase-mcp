@@ -1,16 +1,17 @@
-import type { DatabaseAdapter, QueryResult, ConfirmationRequired } from '../types/index.js';
+import { z } from 'zod';
+import type { DatabaseAdapter, QueryResult } from '../types/index.js';
 import { SafetyGuard } from '../safety/guard.js';
 import { formatAsMarkdownTable } from '../formatter/markdown.js';
 import type { SafetyConfig, OutputConfig } from '../types/index.js';
 
 /**
- * Query 工具参数
+ * Query 工具参数 Schema
  */
-export interface QueryParams {
-  sql: string;
-  max_rows?: number;
-  confirm?: boolean;
-}
+export const QueryParamsSchema = z.object({
+  sql: z.string().describe('SQL query to execute'),
+  max_rows: z.number().optional().describe('Maximum number of rows to return (overrides config default)'),
+  confirm: z.boolean().optional().describe('Set to true to confirm execution of dangerous SQL')
+});
 
 /**
  * Query 工具返回类型
@@ -30,25 +31,8 @@ export function createQueryTool(
   return {
     name: 'query',
     description: 'Execute SQL query on OceanBase database. Returns results as Markdown table. Dangerous operations (DROP, TRUNCATE, ALTER, DELETE) require confirmation.',
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        sql: {
-          type: 'string',
-          description: 'SQL query to execute'
-        },
-        max_rows: {
-          type: 'number',
-          description: 'Maximum number of rows to return (overrides config default)'
-        },
-        confirm: {
-          type: 'boolean',
-          description: 'Set to true to confirm execution of dangerous SQL'
-        }
-      },
-      required: ['sql']
-    },
-    async handler(params: QueryParams): Promise<QueryToolResult> {
+    inputSchema: QueryParamsSchema,
+    async handler(params: z.infer<typeof QueryParamsSchema>): Promise<QueryToolResult> {
       const { sql, max_rows, confirm } = params;
       const actualMaxRows = max_rows ?? outputConfig.max_rows;
 

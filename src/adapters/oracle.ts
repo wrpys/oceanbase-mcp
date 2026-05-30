@@ -3,6 +3,11 @@ import { BaseAdapter } from './base.js';
 import type { QueryResult } from '../types/index.js';
 import { truncateRows } from '../formatter/markdown.js';
 
+// Type for Oracle metadata
+interface OracleMetaData {
+  name: string;
+}
+
 /**
  * Oracle 适配器配置
  */
@@ -77,7 +82,7 @@ export class OracleAdapter extends BaseAdapter {
       // 获取列名
       let columns: string[] = [];
       if (result.metaData) {
-        columns = result.metaData.map(m => m.name);
+        columns = (result.metaData as OracleMetaData[]).map((m: OracleMetaData) => m.name);
       } else if (rows.length > 0) {
         columns = Object.keys(rows[0] as Record<string, unknown>);
       }
