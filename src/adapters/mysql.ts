@@ -111,8 +111,10 @@ export class MySQLAdapter extends BaseAdapter {
    */
   async listTables(database?: string): Promise<QueryResult> {
     if (database) {
+      // Escape database name with backticks to prevent SQL injection
+      const escapedDb = database.replace(/`/g, '``');
       return this.query(
-        `SELECT TABLE_NAME, TABLE_TYPE, TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = '${database}'`
+        `SELECT TABLE_NAME, TABLE_TYPE, TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = '${escapedDb}'`
       );
     }
     return this.query('SHOW TABLES');
@@ -122,7 +124,11 @@ export class MySQLAdapter extends BaseAdapter {
    * 描述表结构
    */
   async describeTable(table: string, database?: string): Promise<QueryResult> {
-    const tableName = database ? `${database}.${table}` : table;
+    // Escape identifiers with backticks to prevent SQL injection
+    const escapedTable = table.replace(/`/g, '``');
+    const tableName = database
+      ? `\`${database.replace(/`/g, '``')}\`.\`${escapedTable}\``
+      : `\`${escapedTable}\``;
     return this.query(`DESCRIBE ${tableName}`);
   }
 }

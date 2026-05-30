@@ -117,9 +117,18 @@ export class OracleAdapter extends BaseAdapter {
    * 列出所有表
    */
   async listTables(database?: string): Promise<QueryResult> {
+    // Validate identifier: only allow alphanumeric and underscores
+    const validateIdentifier = (name: string): string => {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+        throw new Error(`Invalid identifier: ${name}`);
+      }
+      return name.toUpperCase();
+    };
+
     if (database) {
+      const safeDb = validateIdentifier(database);
       return this.query(
-        `SELECT TABLE_NAME, 'TABLE' AS TABLE_TYPE, COMMENTS FROM ALL_TABLES LEFT JOIN ALL_TAB_COMMENTS ON ALL_TABLES.TABLE_NAME = ALL_TAB_COMMENTS.TABLE_NAME WHERE OWNER = '${database.toUpperCase()}'`
+        `SELECT TABLE_NAME, 'TABLE' AS TABLE_TYPE, COMMENTS FROM ALL_TABLES LEFT JOIN ALL_TAB_COMMENTS ON ALL_TABLES.TABLE_NAME = ALL_TAB_COMMENTS.TABLE_NAME WHERE OWNER = '${safeDb}'`
       );
     }
     return this.query(
@@ -131,9 +140,18 @@ export class OracleAdapter extends BaseAdapter {
    * 描述表结构
    */
   async describeTable(table: string, database?: string): Promise<QueryResult> {
-    const owner = database ? database.toUpperCase() : 'USER';
+    // Validate identifiers: only allow alphanumeric and underscores
+    const validateIdentifier = (name: string): string => {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+        throw new Error(`Invalid identifier: ${name}`);
+      }
+      return name.toUpperCase();
+    };
+
+    const safeTable = validateIdentifier(table);
+    const owner = database ? validateIdentifier(database) : 'USER';
     return this.query(
-      `SELECT COLUMN_NAME, DATA_TYPE, NULLABLE, DATA_DEFAULT FROM ALL_TAB_COLUMNS WHERE TABLE_NAME = '${table.toUpperCase()}' AND OWNER = '${owner}' ORDER BY COLUMN_ID`
+      `SELECT COLUMN_NAME, DATA_TYPE, NULLABLE, DATA_DEFAULT FROM ALL_TAB_COLUMNS WHERE TABLE_NAME = '${safeTable}' AND OWNER = '${owner}' ORDER BY COLUMN_ID`
     );
   }
 }
