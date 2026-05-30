@@ -1,0 +1,33 @@
+{
+  "name": "oceanbase-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for OceanBase database - supports MySQL and Oracle modes",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "oceanbase-mcp": "dist/index.js"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": ["mcp", "oceanbase", "database", "mysql", "oracle"],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "js-yaml": "^4.1.1",
+    "mysql2": "^3.22.4",
+    "oracledb": "^6.10.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  }
+}
