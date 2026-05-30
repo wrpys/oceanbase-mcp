@@ -1,0 +1,22 @@
+# OceanBase MCP Server Configuration Example
+
+connection:
+  mode: mysql              # mysql | oracle
+  host: localhost
+  port: 2881               # MySQL 模式默认 2881，Oracle 模式默认 2883
+  user: root
+  password: your_password
+  database: test           # 可选，默认连接的数据库
+  # Oracle 模式特有配置（仅 mode: oracle 时生效）
+  # service: ORCL          # Oracle service name
+
+safety:
+  confirm_dangerous: true  # 危险操作需要确认
+  dangerous_keywords:      # 危险关键字列表
+    - DROP
+    - TRUNCATE
+    - ALTER
+    - DELETE
+
+output:
+  max_rows: 100            # 默认最大返回行数，0 表示不限制
