@@ -13,6 +13,197 @@ import { formatAsMarkdownTable } from './formatter/markdown.js';
 import type { QueryResult } from './types/index.js';
 
 /**
+ * 主键缓存
+ */
+const primaryKeyCache: Map<string, string> = new Map();
+
+/**
+ * 获取表的主键列名
+ */
+async function getPrimaryKey(adapter: DatabaseAdapter, table: string, database?: string): Promise<string | null> {
+  const cacheKey = database ? `${database}.${table}` : table;
+
+  if (primaryKeyCache.has(cacheKey)) {
+    return primaryKeyCache.get(cacheKey)!;
+  }
+
+  // Oracle 模式查询主键
+  const oracleSql = `SELECT cols.column_name FROM user_constraints cons, user_cons_columns cols WHERE cons.constraint_type = 'P' AND cons.table_name = '${table.toUpperCase()}' AND cons.constraint_name = cols.constraint_name`;
+
+  // MySQL 模式查询主键
+  const mysqlSql = `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_NAME = '${table}' AND CONSTRAINT_NAME = 'PRIMARY'`;
+
+  // 尝试 Oracle 语法
+  let result = await adapter.query(oracleSql, 1);
+
+  // 如果 Oracle 查询失败，尝试 MySQL 语法
+  if (!result.success || !result.data || result.data.length === 0) {
+    result = await adapter.query(mysqlSql, 1);
+  }
+
+  if (result.success && result.data && result.data.length > 0) {
+    const row = result.data[0] as Record<string, unknown>;
+    const primaryKey = (row.COLUMN_NAME || row.column_name) as string;
+    primaryKeyCache.set(cacheKey, primaryKey);
+    return primaryKey;
+  }
+
+  return null;
+}
+
+/**
+ * 转义 SQL 值
+ */
+function escapeValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return 'NULL';
+  }
+
+  if (typeof value === 'string') {
+    // 转义单引号
+    const escaped = value.replace(/'/g, "''");
+    return `'${escaped}'`;
+  }
+
+  if (typeof value === 'number') {
+    return String(value);
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? '1' : '0';
+  }
+
+  if (value instanceof Date) {
+    return `'${value.toISOString()}'`;
+  }
+
+  // 对象转 JSON
+  if (typeof value === 'object') {
+    const escaped = JSON.stringify(value).replace(/'/g, "''");
+    return `'${escaped}'`;
+  }
+
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+/**
+ * 构建 INSERT SQL
+ */
+function buildInsertSQL(table: string, data: Record<string, unknown> | Record<string, unknown>[]): string {
+  const dataArray = Array.isArray(data) ? data : [data];
+
+  if (dataArray.length === 0) {
+    throw new Error('No data provided for insert');
+  }
+
+  // 获取所有列名（使用第一条数据的列）
+  const columns = Object.keys(dataArray[0]);
+
+  // 构建值部分
+  const valuesList = dataArray.map(row => {
+    const values = columns.map(col => escapeValue(row[col]));
+    return `(${values.join(', ')})`;
+  });
+
+  // 转义表名
+  const escapedTable = table.replace(/`/g, '``');
+
+  return `INSERT INTO \`${escapedTable}\` (${columns.map(c => `\`${c.replace(/`/g, '``')}\``).join(', ')}) VALUES ${valuesList.join(', ')}`;
+}
+
+/**
+ * 构建 DELETE SQL
+ */
+function buildDeleteSQL(table: string, where?: string, id?: string | number, ids?: (string | number)[], primaryKey?: string): string {
+  const escapedTable = table.replace(/`/g, '``');
+
+  let whereClause = '';
+
+  if (id !== undefined && primaryKey) {
+    whereClause = `\`${primaryKey}\` = ${escapeValue(id)}`;
+  } else if (ids && ids.length > 0 && primaryKey) {
+    const values = ids.map(v => escapeValue(v)).join(', ');
+    whereClause = `\`${primaryKey}\` IN (${values})`;
+  } else if (where) {
+    whereClause = where;
+  } else {
+    throw new Error('DELETE requires either where condition or id/ids with primary key');
+  }
+
+  return `DELETE FROM \`${escapedTable}\` WHERE ${whereClause}`;
+}
+
+/**
+ * 构建 UPDATE SQL
+ */
+function buildUpdateSQL(table: string, data: Record<string, unknown>, where?: string, id?: string | number, primaryKey?: string): string {
+  const escapedTable = table.replace(/`/g, '``');
+
+  // 构建 SET 部分
+  const setParts = Object.entries(data).map(([col, val]) => {
+    const escapedCol = col.replace(/`/g, '``');
+    return `\`${escapedCol}\` = ${escapeValue(val)}`;
+  });
+
+  let whereClause = '';
+
+  if (id !== undefined && primaryKey) {
+    whereClause = `\`${primaryKey}\` = ${escapeValue(id)}`;
+  } else if (where) {
+    whereClause = where;
+  } else {
+    throw new Error('UPDATE requires either where condition or id with primary key');
+  }
+
+  return `UPDATE \`${escapedTable}\` SET ${setParts.join(', ')} WHERE ${whereClause}`;
+}
+
+/**
+ * 格式化确认提示
+ */
+function formatDMLConfirmation(
+  operation: 'INSERT' | 'DELETE' | 'UPDATE',
+  sql: string,
+  table: string,
+  rowCount: number,
+  extra?: {
+    dataPreview?: Record<string, unknown>[];
+    whereClause?: string;
+    changes?: Record<string, { old: unknown; new: unknown }>;
+    riskLevel?: string;
+    riskDescription?: string;
+  }
+): string {
+  const confirmation: Record<string, unknown> = {
+    type: 'confirmation_required',
+    sql,
+    operation,
+    table,
+    row_count: rowCount,
+    suggestion: `请确认是否要执行此操作。如确认，请重新调用 ${operation.toLowerCase()} 工具并传入 confirm: true 参数。`
+  };
+
+  if (extra?.dataPreview) {
+    confirmation.data_preview = extra.dataPreview;
+  }
+
+  if (extra?.whereClause) {
+    confirmation.where_clause = extra.whereClause;
+  }
+
+  if (extra?.changes) {
+    confirmation.changes = extra.changes;
+  }
+
+  if (extra?.riskLevel) {
+    confirmation.risk_level = extra.riskLevel;
+    confirmation.risk_description = extra.riskDescription;
+  }
+
+  return JSON.stringify(confirmation, null, 2);
+}
+
+/**
  * 解析命令行参数
  */
 function parseArgs(): { configPath: string } {
