@@ -430,6 +430,303 @@ function registerTools(
       };
     }
   );
+
+  // Insert tool
+  server.tool(
+    'insert',
+    'Insert data into a table. Supports single row or batch insert. Requires confirmation before execution.',
+    {
+      table: z.string().describe('Table name to insert into'),
+      data: z.union([
+        z.record(z.string(), z.unknown()).describe('Single row: { column: value }'),
+        z.array(z.record(z.string(), z.unknown())).describe('Multiple rows: [{ column: value }, ...]')
+      ]).describe('Data to insert'),
+      database: z.string().optional().describe('Database name (optional)'),
+      confirm: z.boolean().optional().describe('Set to true to confirm and execute')
+    },
+    async (params: { table: string; data: Record<string, unknown> | Record<string, unknown>[]; database?: string; confirm?: boolean }) => {
+      const { table, data, confirm } = params;
+
+      try {
+        const dataArray = Array.isArray(data) ? data : [data];
+        const sql = buildInsertSQL(table, data);
+
+        // 未确认时返回预览
+        if (!confirm) {
+          const preview = dataArray.slice(0, 5);
+          const text = formatDMLConfirmation('INSERT', sql, table, dataArray.length, {
+            dataPreview: preview
+          });
+          return {
+            content: [{
+              type: 'text',
+              text
+            }]
+          };
+        }
+
+        // 执行插入
+        const result = await adapter.query(sql);
+
+        if (!result.success) {
+          return {
+            content: [{
+              type: 'text',
+              text: `Error: ${result.error}`
+            }]
+          };
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Insert successful. Rows affected: ${result.rowCount || dataArray.length}`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Error: ${error instanceof Error ? error.message : String(error)}`
+          }]
+        };
+      }
+    }
+  );
+
+  // Delete tool
+  server.tool(
+    'delete',
+    'Delete data from a table. Supports primary key deletion (id/ids) or condition deletion (where). Requires confirmation before execution.',
+    {
+      table: z.string().describe('Table name to delete from'),
+      where: z.string().optional().describe('WHERE condition (mutually exclusive with id/ids)'),
+      id: z.union([z.string(), z.number()]).optional().describe('Primary key value for single row deletion'),
+      ids: z.array(z.union([z.string(), z.number()])).optional().describe('Primary key values for batch deletion'),
+      database: z.string().optional().describe('Database name (optional)'),
+      confirm: z.boolean().optional().describe('Set to true to confirm and execute')
+    },
+    async (params: { table: string; where?: string; id?: string | number; ids?: (string | number)[]; database?: string; confirm?: boolean }) => {
+      const { table, where, id, ids, confirm } = params;
+
+      try {
+        // 参数冲突检查
+        if ((where && (id || ids)) || (id && ids)) {
+          return {
+            content: [{
+              type: 'text',
+              text: 'Error: Cannot use both \'where\' and \'id\'/\'ids\' parameters, or both \'id\' and \'ids\''
+            }]
+          };
+        }
+
+        // 获取主键（如果使用 id/ids）
+        let primaryKey: string | null = null;
+        if (id !== undefined || (ids && ids.length > 0)) {
+          primaryKey = await getPrimaryKey(adapter, table);
+          if (!primaryKey) {
+            return {
+              content: [{
+                type: 'text',
+                text: `Error: No primary key found for table '${table}'. Use 'where' parameter instead.`
+              }]
+            };
+          }
+        }
+
+        const sql = buildDeleteSQL(table, where, id, ids, primaryKey!);
+
+        // 计算预估行数
+        let estimatedRows = 1;
+        if (ids && ids.length > 0) {
+          estimatedRows = ids.length;
+        } else if (where) {
+          // 查询预估行数
+          const countSql = `SELECT COUNT(*) AS cnt FROM \`${table.replace(/`/g, '``')}\` WHERE ${where}`;
+          const countResult = await adapter.query(countSql);
+          if (countResult.success && countResult.data && countResult.data.length > 0) {
+            const row = countResult.data[0] as Record<string, unknown>;
+            estimatedRows = (row.cnt || row.CNT) as number;
+          }
+        }
+
+        // 未确认时返回预览
+        if (!confirm) {
+          const whereClause = id !== undefined ? `${primaryKey} = ${escapeValue(id)}`
+            : ids && ids.length > 0 ? `${primaryKey} IN (${ids.map(v => escapeValue(v)).join(', ')})`
+            : where || '';
+
+          const text = formatDMLConfirmation('DELETE', sql, table, estimatedRows, {
+            whereClause,
+            riskLevel: 'high',
+            riskDescription: '删除数据，可能影响业务'
+          });
+          return {
+            content: [{
+              type: 'text',
+              text
+            }]
+          };
+        }
+
+        // 执行删除
+        const result = await adapter.query(sql);
+
+        if (!result.success) {
+          return {
+            content: [{
+              type: 'text',
+              text: `Error: ${result.error}`
+            }]
+          };
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Delete successful. Rows affected: ${result.rowCount || 0}`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Error: ${error instanceof Error ? error.message : String(error)}`
+          }]
+        };
+      }
+    }
+  );
+
+  // Update tool
+  server.tool(
+    'update',
+    'Update data in a table. Supports primary key update (id) or condition update (where). Shows change comparison before confirmation.',
+    {
+      table: z.string().describe('Table name to update'),
+      data: z.record(z.string(), z.unknown()).describe('Column values to update: { column: new_value }'),
+      where: z.string().optional().describe('WHERE condition (mutually exclusive with id)'),
+      id: z.union([z.string(), z.number()]).optional().describe('Primary key value for single row update'),
+      database: z.string().optional().describe('Database name (optional)'),
+      confirm: z.boolean().optional().describe('Set to true to confirm and execute')
+    },
+    async (params: { table: string; data: Record<string, unknown>; where?: string; id?: string | number; database?: string; confirm?: boolean }) => {
+      const { table, data, where, id, confirm } = params;
+
+      try {
+        // 参数冲突检查
+        if (where && id !== undefined) {
+          return {
+            content: [{
+              type: 'text',
+              text: 'Error: Cannot use both \'where\' and \'id\' parameters'
+            }]
+          };
+        }
+
+        // 获取主键（如果使用 id）
+        let primaryKey: string | null = null;
+        let whereClause = '';
+
+        if (id !== undefined) {
+          primaryKey = await getPrimaryKey(adapter, table);
+          if (!primaryKey) {
+            return {
+              content: [{
+                type: 'text',
+                text: `Error: No primary key found for table '${table}'. Use 'where' parameter instead.`
+              }]
+            };
+          }
+          whereClause = `${primaryKey} = ${escapeValue(id)}`;
+        } else if (where) {
+          whereClause = where;
+        } else {
+          return {
+            content: [{
+              type: 'text',
+              text: 'Error: Either \'where\' or \'id\' parameter is required'
+            }]
+          };
+        }
+
+        const sql = buildUpdateSQL(table, data, where, id, primaryKey!);
+
+        // 查询当前数据用于变更对比
+        const escapedTable = table.replace(/`/g, '``');
+        const currentDataSql = `SELECT * FROM \`${escapedTable}\` WHERE ${whereClause}`;
+        const currentResult = await adapter.query(currentDataSql, 1);
+
+        // 未确认时返回预览（包含变更对比）
+        if (!confirm) {
+          let changes: Record<string, { old: unknown; new: unknown }> = {};
+          let rowCount = 1;
+
+          if (currentResult.success && currentResult.data && currentResult.data.length > 0) {
+            const currentRow = currentResult.data[0] as Record<string, unknown>;
+
+            // 构建变更对比
+            for (const [col, newVal] of Object.entries(data)) {
+              const oldVal = currentRow[col];
+              changes[col] = { old: oldVal ?? 'NULL', new: newVal };
+            }
+
+            rowCount = currentResult.data.length;
+          } else {
+            // 无法获取当前数据时，只显示新值
+            for (const [col, newVal] of Object.entries(data)) {
+              changes[col] = { old: '(unknown)', new: newVal };
+            }
+
+            // 查询预估行数
+            const countSql = `SELECT COUNT(*) AS cnt FROM \`${escapedTable}\` WHERE ${whereClause}`;
+            const countResult = await adapter.query(countSql);
+            if (countResult.success && countResult.data && countResult.data.length > 0) {
+              const row = countResult.data[0] as Record<string, unknown>;
+              rowCount = (row.cnt || row.CNT) as number;
+            }
+          }
+
+          const text = formatDMLConfirmation('UPDATE', sql, table, rowCount, {
+            whereClause,
+            changes
+          });
+          return {
+            content: [{
+              type: 'text',
+              text
+            }]
+          };
+        }
+
+        // 执行更新
+        const result = await adapter.query(sql);
+
+        if (!result.success) {
+          return {
+            content: [{
+              type: 'text',
+              text: `Error: ${result.error}`
+            }]
+          };
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: `Update successful. Rows affected: ${result.rowCount || 0}`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Error: ${error instanceof Error ? error.message : String(error)}`
+          }]
+        };
+      }
+    }
+  );
 }
 
 /**
