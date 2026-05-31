@@ -23,7 +23,7 @@ tsx src/index.ts --config example/config.yaml
 
 MCP server for OceanBase database (MySQL and Oracle modes). Communicates over stdio transport using `@modelcontextprotocol/sdk`.
 
-**Startup flow:** `src/index.ts` → load YAML config → create adapter (MySQL or Oracle) → connect with retry (3×, 2s) → register 4 tools → serve over stdio.
+**Startup flow:** `src/index.ts` → load YAML config → create adapter (MySQL or Oracle) → connect with retry (3×, 2s) → register 7 tools → serve over stdio.
 
 **Module dependencies:**
 
@@ -37,14 +37,15 @@ index.ts ──→ config/loader.ts ──→ config/schema.ts (Zod)
          ──→ types/index.ts (all interfaces)
 ```
 
-**Key architectural note:** `src/index.ts` has an inline `registerTools()` function that directly registers tools on the McpServer. The `src/tools/` directory contains equivalent factory functions (`createQueryTool`, etc.) but they are **not wired into the entry point** — they are effectively an alternative path.
+**Key architectural note:** `src/index.ts` has an inline `registerTools()` function that directly registers 7 tools on the McpServer: `query`, `list_databases`, `list_tables`, `describe_table`, `insert`, `delete`, `update`. The `src/tools/` directory contains alternative factory functions that are **not wired into the entry point**. DML helper functions (`buildInsertSQL`, `buildDeleteSQL`, `buildUpdateSQL`, `getPrimaryKey`, `escapeValue`, `formatDMLConfirmation`) are defined in `index.ts` before `registerTools()`.
 
 ## Key Patterns
 
 - **MCP SDK:** Tools registered via `server.tool(name, description, zodSchema, handler)` from `@modelcontextprotocol/sdk/server/mcp.js`. All handlers return `{ content: [{ type: "text", text: string }] }`.
 - **Adapter pattern:** `DatabaseAdapter` interface → `BaseAdapter` abstract class → `MySQLAdapter` (mysql2/promise pool) and `OracleAdapter` (oracledb pool). Factory in `index.ts` selects by `config.connection.mode`.
 - **Safety guard:** `SafetyGuard.check(sql)` returns `{ safe, confirmation? }`. Dangerous keywords trigger a confirmation prompt; caller re-invokes with `confirm: true`.
-- **SQL injection prevention:** MySQL adapter escapes identifiers with backtick quoting. Oracle adapter validates against `^[a-zA-Z_][a-zA-Z0-9_]*$` regex.
+- **SQL injection prevention:** MySQL adapter escapes identifiers with backtick quoting. Oracle adapter validates against `^[a-zA-Z_][a-zA-Z0-9_]*$` regex. DML helpers (`buildInsertSQL`, `buildDeleteSQL`, `buildUpdateSQL`) use backtick escaping and `escapeValue()` for value binding. `getPrimaryKey()` validates table names against same regex before interpolation.
+- **DML tools:** `insert`, `delete`, `update` are registered inline in `registerTools()` alongside the query/list tools. All require `confirm: true` to execute. Helper functions (`buildInsertSQL`, `buildDeleteSQL`, `buildUpdateSQL`, `getPrimaryKey`, `escapeValue`, `formatDMLConfirmation`) are defined at module level in `index.ts`. Primary key cache (`primaryKeyCache: Map`) avoids repeated queries.
 - **Config validation:** Zod schemas in `src/config/schema.ts`. Defaults applied for `safety` and `output` sections.
 - **Import style:** All imports use `.js` extensions (NodeNext module resolution). Source comments are in Chinese.
 
@@ -54,9 +55,10 @@ OceanBase may use MySQL protocol port (2883) even when internally running Oracle
 
 ## Tests
 
-5 test files in `tests/` — all unit tests with no live database dependency:
+6 test files in `tests/` — all unit tests with no live database dependency:
 - `types.test.ts` — type assignments
 - `config.test.ts` — config validation and defaults
 - `formatter.test.ts` — markdown table formatting and row truncation
 - `safety.test.ts` — SQL safety guard
 - `adapters.test.ts` — adapter instantiation and not-connected error paths
+- `dml.test.ts` — insert/delete/update tool behavior and confirmation workflow
