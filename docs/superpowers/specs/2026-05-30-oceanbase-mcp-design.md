@@ -7,7 +7,8 @@
 **核心特性：**
 - 同时支持 OceanBase 的 MySQL 和 Oracle 兼容协议
 - 完整 DDL/DML 权限，危险操作需用户确认
-- 基础功能：执行 SQL、查看表结构、列出数据库/表
+- 查询功能：执行 SQL、查看表结构、列出数据库/表
+- 数据操作：INSERT、DELETE、UPDATE（均需用户确认）
 - YAML 配置文件，单实例连接
 - Markdown 表格格式返回结果
 - 可配置分页限制
@@ -98,7 +99,7 @@ output:
 
 ## MCP Tools 定义
 
-提供 **4 个核心工具**：
+提供 **7 个工具**：
 
 ### 1. `query` 工具
 
@@ -152,6 +153,119 @@ output:
 **实现方式：**
 - MySQL 模式：执行 `DESCRIBE table` 或查询 `information_schema`
 - Oracle 模式：查询 `ALL_TAB_COLUMNS`
+
+### 5. `insert` 工具
+
+插入数据到指定表。
+
+**参数：**
+- `table: string` (必填) — 表名
+- `data: object | array` (必填) — 单条为 `{ column: value }`，批量为 `[{ column: value }, ...]`
+- `database: string` (可选) — 指定数据库
+- `confirm: boolean` (可选) — 确认执行
+
+**返回：**
+- 未确认：返回预览（SQL + 影响行数 + 数据预览）
+- 已确认：返回执行结果（affectedRows）
+- 执行失败：错误信息
+
+**SQL 构建逻辑：**
+- 单条：`INSERT INTO table (col1, col2) VALUES (val1, val2)`
+- 批量：`INSERT INTO table (col1, col2) VALUES (val1, val2), (val3, val4)`
+- 值自动处理：字符串加引号，数字直接拼接，NULL 转 NULL
+- 表名使用反引号转义（MySQL 模式）或验证（Oracle 模式）
+
+**预览返回格式：**
+```json
+{
+  "type": "confirmation_required",
+  "sql": "INSERT INTO SYS_USER (USER_ID, USER_NAME) VALUES (1, 'test')",
+  "operation": "INSERT",
+  "table": "SYS_USER",
+  "row_count": 1,
+  "data_preview": [{ "USER_ID": 1, "USER_NAME": "test" }],
+  "suggestion": "请确认是否要插入以上数据。如确认，请重新调用 insert 工具并传入 confirm: true 参数。"
+}
+```
+
+### 6. `delete` 工具
+
+删除数据。
+
+**参数：**
+- `table: string` (必填) — 表名
+- `where: string` (可选) — WHERE 条件（与 id/ids 二选一）
+- `id: string | number` (可选) — 主键值（单条删除）
+- `ids: array` (可选) — 主键值数组（批量删除）
+- `database: string` (可选) — 指定数据库
+- `confirm: boolean` (可选) — 确认执行
+
+**返回：**
+- 未确认：返回预览（SQL + 影响行数预估 + 风险说明）
+- 已确认：返回执行结果（affectedRows）
+- 执行失败：错误信息
+
+**SQL 构建逻辑：**
+- 主键删除（id）：`DELETE FROM table WHERE 主键 = id`
+- 主键批量删除（ids）：`DELETE FROM table WHERE 主键 IN (id1, id2, ...)`
+- 条件删除（where）：`DELETE FROM table WHERE {where}`
+- 主键自动获取：查询表结构获取主键列名（带缓存）
+
+**预览返回格式：**
+```json
+{
+  "type": "confirmation_required",
+  "sql": "DELETE FROM SYS_USER WHERE USER_ID = 1",
+  "operation": "DELETE",
+  "table": "SYS_USER",
+  "row_count": 1,
+  "where_clause": "USER_ID = 1",
+  "risk_level": "high",
+  "risk_description": "删除数据，可能影响业务",
+  "suggestion": "请确认是否要删除以上数据。如确认，请重新调用 delete 工具并传入 confirm: true 参数。"
+}
+```
+
+### 7. `update` 工具
+
+更新数据。
+
+**参数：**
+- `table: string` (必填) — 表名
+- `data: object` (必填) — 要更新的列值 `{ column: value, ... }`
+- `where: string` (可选) — WHERE 条件（与 id 二选一）
+- `id: string | number` (可选) — 主键值（主键更新）
+- `database: string` (可选) — 指定数据库
+- `confirm: boolean` (可选) — 确认执行
+
+**返回：**
+- 未确认：返回预览（SQL + 变更对比）
+- 已确认：返回执行结果（affectedRows）
+- 执行失败：错误信息
+
+**SQL 构建逻辑：**
+- 主键更新（id）：`UPDATE table SET col1=val1, col2=val2 WHERE 主键 = id`
+- 条件更新（where）：`UPDATE table SET col1=val1, col2=val2 WHERE {where}`
+
+**变更对比功能：**
+- 更新前先查询当前数据
+- 预览时展示 old → new 的变更对比
+- 帮助用户确认变更内容是否正确
+
+**预览返回格式：**
+```json
+{
+  "type": "confirmation_required",
+  "sql": "UPDATE SYS_USER SET NICK_NAME = '新昵称' WHERE USER_ID = 1",
+  "operation": "UPDATE",
+  "table": "SYS_USER",
+  "row_count": 1,
+  "changes": {
+    "NICK_NAME": { "old": "旧昵称", "new": "新昵称" }
+  },
+  "where_clause": "USER_ID = 1",
+  "suggestion": "请确认是否要更新以上数据。如确认，请重新调用 update 工具并传入 confirm: true 参数。"
+}
 
 ---
 
@@ -231,6 +345,57 @@ Safety Guard 检测 SQL
 
 - 启动时连接失败：最多重试 3 次，间隔 2 秒，失败后输出详细错误并提示用户检查配置
 - 运行时连接断开：自动尝试重新连接（连接池自动处理）
+
+---
+
+## 数据操作工具辅助函数
+
+为支持 insert、delete、update 工具，新增以下辅助函数：
+
+| 函数 | 作用 |
+|------|------|
+| `buildInsertSQL(table, data)` | 构建 INSERT SQL，支持单条和批量 |
+| `buildDeleteSQL(table, where, id, ids, primaryKey)` | 构建 DELETE SQL |
+| `buildUpdateSQL(table, data, where, id, primaryKey)` | 构建 UPDATE SQL |
+| `getPrimaryKey(table)` | 获取表的主键列名（带缓存） |
+| `escapeValue(value)` | 转义 SQL 值（字符串加引号、NULL 处理） |
+| `formatConfirmation(operation, sql, ...)` | 格式化确认提示返回 |
+
+**主键缓存：**
+
+为避免重复查询主键，使用简单的内存缓存：
+
+```typescript
+const primaryKeyCache: Map<string, string> = new Map();
+```
+
+缓存键格式：`database.table` 或仅 `table`。
+
+**主键获取 SQL：**
+
+```sql
+-- Oracle 模式
+SELECT cols.column_name 
+FROM user_constraints cons, user_cons_columns cols 
+WHERE cons.constraint_type = 'P' 
+  AND cons.table_name = 'TABLE_NAME' 
+  AND cons.constraint_name = cols.constraint_name
+
+-- MySQL 模式
+SELECT COLUMN_NAME 
+FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+WHERE TABLE_NAME = 'table_name' 
+  AND CONSTRAINT_NAME = 'PRIMARY'
+```
+
+**错误处理：**
+
+| 错误类型 | 处理方式 |
+|----------|----------|
+| 表不存在 | 返回错误：`Table 'xxx' not found` |
+| 主键未找到 | 返回错误：`No primary key found for table 'xxx'` |
+| 参数冲突 | 返回错误：`Cannot use both 'where' and 'id' parameters` |
+| 执行失败 | 返回数据库原生错误信息 |
 
 ---
 
