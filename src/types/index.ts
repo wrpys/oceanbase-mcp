@@ -1,5 +1,19 @@
 /**
  * 数据库连接模式
+ *
+ * 注意：这是连接协议模式，不是数据库内部兼容模式
+ * - mysql: 使用 MySQL 协议连接（mysql2 驱动），支持端口 2881 或 2883
+ *   - 适用于 OceanBase MySQL 兼容模式
+ *   - 也适用于 OceanBase Oracle 兼容模式通过 MySQL 协议端口（2883）访问
+ *   - 推荐方式，无需安装额外依赖
+ * - oracle: 使用原生 Oracle 协议连接（oracledb 驱动），仅支持端口 2881
+ *   - 仅适用于 OceanBase Oracle 兼容模式
+ *   - 需要安装 Oracle Instant Client
+ *   - 需要配置 service 参数
+ *
+ * OceanBase Oracle 兼容模式可通过两种方式访问：
+ * 1. MySQL 协议端口（2883）：设置 mode='mysql'，SQL 需兼容 Oracle 语法
+ * 2. 原生 Oracle 协议（2881）：设置 mode='oracle'
  */
 export type DatabaseMode = 'mysql' | 'oracle';
 

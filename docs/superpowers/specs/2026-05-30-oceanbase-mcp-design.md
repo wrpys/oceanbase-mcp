@@ -67,13 +67,34 @@
 ```yaml
 # oceanbase-mcp 配置文件
 connection:
+  # 连接协议模式（注意：这是协议模式，不是数据库内部兼容模式）
+  # - mysql: 使用 MySQL 协议连接（mysql2 驱动），支持端口 2881 或 2883
+  #   - 适用于 OceanBase MySQL 兼容模式
+  #   - 也适用于 OceanBase Oracle 兼容模式通过 MySQL 协议端口（2883）访问
+  #   - 推荐方式，无需安装额外依赖
+  # - oracle: 使用原生 Oracle 协议连接（oracledb 驱动），仅支持端口 2881
+  #   - 仅适用于 OceanBase Oracle 兼容模式
+  #   - 需要安装 Oracle Instant Client
+  #   - 需要配置 service 参数
+  #
+  # 重要说明：
+  # OceanBase Oracle 兼容模式可以通过两种方式访问：
+  # 1. MySQL 协议端口（2883）：配置 mode: mysql，使用 mysql2 驱动，SQL 需兼容 Oracle 语法
+  # 2. 原生 Oracle 协议（2881）：配置 mode: oracle，使用 oracledb 驱动
+  #
+  # 如何识别数据库内部模式：
+  # 检查用户名格式：用户名@租户名#集群名
+  # - 租户名包含 "oracle"（如 oracle_utf8）→ Oracle 兼容模式
+  # - 租户名包含 "mysql" 或其他 → MySQL 兼容模式
   mode: mysql              # mysql | oracle
+
   host: localhost
-  port: 2881               # MySQL 模式默认 2881，Oracle 模式默认 2883
+  port: 2881               # MySQL 协议端口：2881（原生）或 2883（代理）
+                           # Oracle 协议端口：2881（原生）
   user: root
   password: your_password
   database: test           # 可选，默认连接的数据库
-  # Oracle 模式特有配置（仅 mode: oracle 时生效）
+  # Oracle 模式特有配置（仅 mode: oracle 时生效，使用原生 Oracle 协议时必填）
   # service: ORCL          # Oracle service name
 
 safety:
@@ -90,8 +111,10 @@ output:
 ```
 
 **配置说明：**
-- `connection.mode` — 必填，决定使用哪个驱动适配器
-- `connection.port` — 根据模式有不同默认值，用户也可自定义
+- `connection.mode` — 必填，**连接协议模式**（不是数据库内部兼容模式）
+  - `mysql`：使用 MySQL 协议（mysql2 驱动），推荐方式
+  - `oracle`：使用原生 Oracle 协议（oracledb 驱动），需安装 Oracle Instant Client
+- `connection.port` — MySQL 协议可用 2881（原生）或 2883（代理）；原生 Oracle 协议仅 2881
 - `safety.confirm_dangerous` — 开启后，危险 SQL 不会直接执行，而是返回确认提示
 - `output.max_rows` — 防止查询结果过大，可通过工具参数临时覆盖
 

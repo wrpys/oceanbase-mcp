@@ -2035,9 +2035,10 @@ main();
 # OceanBase MCP Server Configuration Example
 
 connection:
-  mode: mysql              # mysql | oracle
+  mode: mysql              # mysql | oracle（连接协议模式，不是数据库内部兼容模式）
   host: localhost
-  port: 2881               # MySQL 模式默认 2881，Oracle 模式默认 2883
+  port: 2881               # MySQL 协议端口：2881（原生）或 2883（代理）
+                           # Oracle 协议端口：2881（原生）
   user: root
   password: your_password
   database: test           # 可选，默认连接的数据库

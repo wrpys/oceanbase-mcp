@@ -35,12 +35,28 @@ npm run build
 
 Create a YAML configuration file:
 
+### Understanding `connection.mode`
+
+**Important:** The `mode` parameter specifies the **connection protocol**, not the internal database compatibility mode.
+
+| Mode | Protocol | Driver | Port | Description |
+|------|----------|--------|------|-------------|
+| `mysql` | MySQL Protocol | mysql2 | 2881 or 2883 | Recommended. Works with both MySQL and Oracle compatibility modes |
+| `oracle` | Native Oracle Protocol | oracledb | 2881 | Only for Oracle compatibility mode. Requires Oracle Instant Client |
+
+**OceanBase Oracle Compatibility Mode** can be accessed in two ways:
+1. **MySQL Protocol Port (2883)**: Set `mode: mysql`, use mysql2 driver, write Oracle-compatible SQL
+2. **Native Oracle Protocol (2881)**: Set `mode: oracle`, use oracledb driver, requires `service` parameter
+
+### Configuration Examples
+
+#### MySQL Compatibility Mode (or Oracle mode via MySQL protocol)
+
 ```yaml
-# MySQL mode configuration
 connection:
-  mode: mysql              # mysql | oracle
+  mode: mysql              # Use MySQL protocol (mysql2 driver)
   host: localhost
-  port: 2881               # MySQL mode default: 2881, Oracle mode: 2883
+  port: 2881               # 2881 (native) or 2883 (proxy)
   user: root
   password: your_password
   database: test           # Optional, default database
@@ -57,29 +73,36 @@ output:
   max_rows: 100            # Maximum rows to return (0 = unlimited)
 ```
 
-For Oracle mode with MySQL protocol port (2883):
+#### Oracle Compatibility Mode via MySQL Protocol Port (Recommended)
 
 ```yaml
 connection:
-  mode: mysql              # Use mysql mode even for Oracle compatibility
+  mode: mysql              # Use MySQL protocol even for Oracle compatibility
   host: localhost
-  port: 2883               # Oracle mode MySQL protocol port
-  user: your_user@tenant#cluster
+  port: 2883               # MySQL protocol proxy port
+  user: your_user@tenant#cluster  # Username format: user@tenant#cluster
   password: your_password
   database: your_schema
 ```
 
-For native Oracle mode:
+When using Oracle compatibility mode via MySQL protocol, write Oracle-compatible SQL:
+- Use `WHERE ROWNUM <= 10` instead of `LIMIT 10`
+- Use `SYSDATE` instead of `NOW()`
+- Use `USER_TABLES` instead of `SHOW TABLES`
+
+#### Native Oracle Protocol Mode
 
 ```yaml
 connection:
-  mode: oracle
+  mode: oracle             # Use native Oracle protocol (oracledb driver)
   host: localhost
-  port: 2883
+  port: 2881               # Native Oracle protocol port
   user: your_user
   password: your_password
   service: ORCL            # Oracle service name (required for oracle mode)
 ```
+
+Note: Native Oracle mode requires installing Oracle Instant Client.
 
 ## Usage
 
@@ -389,11 +412,28 @@ The project includes comprehensive unit tests:
 
 ## OceanBase Compatibility Notes
 
-- OceanBase may use MySQL protocol port (2883) even when running Oracle compatibility mode internally
-- In this case, use `mode: mysql` in config but write Oracle-compatible SQL:
-  - Use `WHERE ROWNUM <= 10` instead of `LIMIT 10`
-  - Use `USER_TABLES` instead of `SHOW TABLES`
-  - Use `SYSDATE` instead of `NOW()`
+### Understanding `connection.mode`
+
+**Important:** The `mode` parameter specifies the **connection protocol**, not the internal database compatibility mode.
+
+| Mode | Protocol | Driver | Port | Description |
+|------|----------|--------|------|-------------|
+| `mysql` | MySQL Protocol | mysql2 | 2881 or 2883 | Recommended. Works with both MySQL and Oracle compatibility modes |
+| `oracle` | Native Oracle Protocol | oracledb | 2881 | Only for Oracle compatibility mode. Requires Oracle Instant Client |
+
+### How to Identify Database Mode
+
+Check the username format: `username@tenant#cluster`
+- Tenant name containing `oracle` (e.g., `oracle_utf8`) → Oracle compatibility mode
+- Tenant name containing `mysql` or others → MySQL compatibility mode
+
+### SQL Syntax Differences
+
+When using Oracle compatibility mode via MySQL protocol (2883), write Oracle-compatible SQL:
+- Use `WHERE ROWNUM <= 10` instead of `LIMIT 10`
+- Use `USER_TABLES` instead of `SHOW TABLES`
+- Use `SYSDATE` instead of `NOW()`
+- Use `TO_NUMBER(column)` for numeric comparisons on VARCHAR columns
 
 ## License
 

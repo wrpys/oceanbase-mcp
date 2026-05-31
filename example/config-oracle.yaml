@@ -1,12 +1,40 @@
 # OceanBase MCP Server Configuration Example
+# 此配置文件演示连接 OceanBase Oracle 兼容模式（通过 MySQL 协议端口）
 
 connection:
+  # 连接协议模式（注意：这是协议模式，不是数据库内部兼容模式）
+  # - mysql: 使用 MySQL 协议连接（mysql2 驱动），支持端口 2881 或 2883
+  #   - 适用于 OceanBase MySQL 兼容模式
+  #   - 也适用于 OceanBase Oracle 兼容模式通过 MySQL 协议端口（2883）访问
+  #   - 推荐方式，无需安装额外依赖
+  # - oracle: 使用原生 Oracle 协议连接（oracledb 驱动），仅支持端口 2881
+  #   - 仅适用于 OceanBase Oracle 兼容模式
+  #   - 需要安装 Oracle Instant Client
+  #   - 需要配置 service 参数
+  #
+  # 重要说明：
+  # OceanBase Oracle 兼容模式可以通过两种方式访问：
+  # 1. MySQL 协议端口（2883）：配置 mode: mysql，使用 mysql2 驶动，SQL 需兼容 Oracle 语法
+  #    - 示例：WHERE ROWNUM <= 10（而非 LIMIT 10）
+  #    - 示例：SYSDATE（而非 NOW()）
+  #    - 示例：USER_TABLES（而非 SHOW TABLES）
+  # 2. 原生 Oracle 协议（2881）：配置 mode: oracle，使用 oracledb 驱动
+  #
+  # 本配置使用方式 1：Oracle 兼容模式 + MySQL 协议端口
   mode: mysql              # mysql | oracle (2883端口使用MySQL协议)
+
   host: 10.1.12.96
-  port: 2883               # OceanBase MySQL协议端口
+  port: 2883               # OceanBase MySQL协议端口（代理端口）
+                           # 注意：即使数据库内部是 Oracle 模式，2883 端口仍使用 MySQL 协议
   user: SLF@objiesuantest#obcluster_dev
+                           # 用户名格式：用户名@租户名#集群名
+                           # 租户名包含 "oracle" 表示这是 Oracle 兼容租户
   password: G48cl9eAzpY#@Qspj
-  database: slf            # 默认连接的数据库
+  database: slf            # 默认连接的数据库（Schema）
+
+  # Oracle 模式特有配置（仅 mode: oracle 时生效，使用原生 Oracle 协议时必填）
+  # 本配置使用 mode: mysql，故无需配置 service
+  # service: ORCL          # Oracle service name
 
 safety:
   confirm_dangerous: true  # 危险操作需要确认

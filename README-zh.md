@@ -35,12 +35,28 @@ npm run build
 
 创建 YAML 配置文件：
 
+### 理解 `connection.mode`
+
+**重要说明：** `mode` 参数指定的是**连接协议模式**，而不是数据库内部的兼容模式。
+
+| 模式 | 协议 | 驱动 | 端口 | 说明 |
+|------|------|------|------|------|
+| `mysql` | MySQL 协议 | mysql2 | 2881 或 2883 | 推荐。适用于 MySQL 和 Oracle 兼容模式 |
+| `oracle` | 原生 Oracle 协议 | oracledb | 2881 | 仅适用于 Oracle 兼容模式。需安装 Oracle Instant Client |
+
+**OceanBase Oracle 兼容模式**可通过两种方式访问：
+1. **MySQL 协议端口（2883）**：设置 `mode: mysql`，使用 mysql2 驱动，SQL 需兼容 Oracle 语法
+2. **原生 Oracle 协议（2881）**：设置 `mode: oracle`，使用 oracledb 驱动，需配置 `service` 参数
+
+### 配置示例
+
+#### MySQL 兼容模式（或 Oracle 模式通过 MySQL 协议）
+
 ```yaml
-# MySQL 模式配置
 connection:
-  mode: mysql              # mysql | oracle
+  mode: mysql              # 使用 MySQL 协议（mysql2 驱动）
   host: localhost
-  port: 2881               # MySQL 模式默认：2881，Oracle 模式：2883
+  port: 2881               # 2881（原生）或 2883（代理）
   user: root
   password: your_password
   database: test           # 可选，默认连接的数据库
@@ -57,29 +73,36 @@ output:
   max_rows: 100            # 最大返回行数（0 = 不限制）
 ```
 
-Oracle 兼容模式使用 MySQL 协议端口（2883）：
+#### Oracle 兼容模式通过 MySQL 协议端口（推荐）
 
 ```yaml
 connection:
-  mode: mysql              # Oracle 兼容模式也使用 mysql 模式
+  mode: mysql              # 即使是 Oracle 兼容模式也使用 mysql 模式
   host: localhost
-  port: 2883               # Oracle 模式 MySQL 协议端口
-  user: your_user@tenant#cluster
+  port: 2883               # MySQL 协议代理端口
+  user: your_user@tenant#cluster  # 用户名格式：用户名@租户名#集群名
   password: your_password
   database: your_schema
 ```
 
-原生 Oracle 模式：
+通过 MySQL 协议访问 Oracle 兼容模式时，需使用 Oracle 兼容 SQL：
+- 使用 `WHERE ROWNUM <= 10` 替代 `LIMIT 10`
+- 使用 `SYSDATE` 替代 `NOW()`
+- 使用 `USER_TABLES` 替代 `SHOW TABLES`
+
+#### 原生 Oracle 协议模式
 
 ```yaml
 connection:
-  mode: oracle
+  mode: oracle             # 使用原生 Oracle 协议（oracledb 驱动）
   host: localhost
-  port: 2883
+  port: 2881               # 原生 Oracle 协议端口
   user: your_user
   password: your_password
   service: ORCL            # Oracle service name（oracle 模式必填）
 ```
+
+注意：原生 Oracle 模式需要安装 Oracle Instant Client。
 
 ## 使用方法
 
@@ -389,11 +412,28 @@ npx vitest run tests/safety.test.ts
 
 ## OceanBase 兼容性说明
 
-- OceanBase 内部运行 Oracle 兼容模式时，可能仍使用 MySQL 协议端口（2883）
-- 此情况下，配置使用 `mode: mysql`，但 SQL 需兼容 Oracle 语法：
-  - 使用 `WHERE ROWNUM <= 10` 替代 `LIMIT 10`
-  - 使用 `USER_TABLES` 替代 `SHOW TABLES`
-  - 使用 `SYSDATE` 替代 `NOW()`
+### 理解 `connection.mode`
+
+**重要说明：** `mode` 参数指定的是**连接协议模式**，而不是数据库内部的兼容模式。
+
+| 模式 | 协议 | 驱动 | 端口 | 说明 |
+|------|------|------|------|------|
+| `mysql` | MySQL 协议 | mysql2 | 2881 或 2883 | 推荐。适用于 MySQL 和 Oracle 兼容模式 |
+| `oracle` | 原生 Oracle 协议 | oracledb | 2881 | 仅适用于 Oracle 兼容模式。需安装 Oracle Instant Client |
+
+### 如何识别数据库模式
+
+检查用户名格式：`用户名@租户名#集群名`
+- 租户名包含 `oracle`（如 `oracle_utf8`）→ Oracle 兼容模式
+- 租户名包含 `mysql` 或其他 → MySQL 兼容模式
+
+### SQL 语法差异
+
+通过 MySQL 协议（2883）访问 Oracle 兼容模式时，需使用 Oracle 兼容 SQL：
+- 使用 `WHERE ROWNUM <= 10` 替代 `LIMIT 10`
+- 使用 `USER_TABLES` 替代 `SHOW TABLES`
+- 使用 `SYSDATE` 替代 `NOW()`
+- 对 VARCHAR 类型的数字比较使用 `TO_NUMBER(column)`
 
 ## 许可证
 

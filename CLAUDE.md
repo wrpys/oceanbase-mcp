@@ -51,7 +51,32 @@ index.ts ──→ config/loader.ts ──→ config/schema.ts (Zod)
 
 ## OceanBase Compatibility
 
-OceanBase may use MySQL protocol port (2883) even when internally running Oracle compatibility mode. In this case, use `mode: mysql` in config but write Oracle-compatible SQL (e.g., `WHERE ROWNUM <= 10` instead of `LIMIT 10`, `USER_TABLES` instead of `SHOW TABLES`).
+### Understanding `connection.mode`
+
+**Important:** The `mode` parameter specifies the **connection protocol**, not the internal database compatibility mode.
+
+| Mode | Protocol | Driver | Port | Description |
+|------|----------|--------|------|-------------|
+| `mysql` | MySQL Protocol | mysql2 | 2881 or 2883 | Recommended. Works with both MySQL and Oracle compatibility modes |
+| `oracle` | Native Oracle Protocol | oracledb | 2881 | Only for Oracle compatibility mode. Requires Oracle Instant Client |
+
+**OceanBase Oracle Compatibility Mode** can be accessed in two ways:
+1. **MySQL Protocol Port (2883)**: Set `mode: mysql`, use mysql2 driver, write Oracle-compatible SQL
+2. **Native Oracle Protocol (2881)**: Set `mode: oracle`, use oracledb driver, requires `service` parameter
+
+### How to Identify Database Mode
+
+Check the username format: `用户名@租户名#集群名`
+- Tenant name containing `oracle` (e.g., `oracle_utf8`) → Oracle compatibility mode
+- Tenant name containing `mysql` or others → MySQL compatibility mode
+
+### SQL Syntax Differences
+
+When using Oracle compatibility mode via MySQL protocol (2883), write Oracle-compatible SQL:
+- Use `WHERE ROWNUM <= 10` instead of `LIMIT 10`
+- Use `USER_TABLES` instead of `SHOW TABLES`
+- Use `SYSDATE` instead of `NOW()`
+- Use `TO_NUMBER(column)` for numeric comparisons on VARCHAR columns
 
 ## Tests
 
