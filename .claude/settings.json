@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(node -e ' *)",
+      "Bash(cat \"C:\\\\\\\\Users\\\\\\\\WRP\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\claude\\\\\\\\e--job-popo-mcp-oceanbase-mcp\\\\\\\\bd574917-09b7-4d4e-9535-a9d4255fe989\\\\\\\\tasks\\\\\\\\bs2idls3a.output\")"
     ]
   }
 }

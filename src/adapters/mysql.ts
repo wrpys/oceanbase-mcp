@@ -85,6 +85,12 @@ export class MySQLAdapter extends BaseAdapter {
 
       // 如果是执行结果（INSERT/UPDATE/DELETE 等）
       const result = rows as ResultSetHeader;
+
+      // 对于 DML 操作，显式提交事务以确保 OceanBase Oracle 模式下更改持久化
+      if (result.affectedRows !== undefined) {
+        await this.pool.execute('COMMIT');
+      }
+
       return {
         success: true,
         data: [{
