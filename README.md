@@ -115,54 +115,99 @@ Note: Native Oracle mode requires installing Oracle Instant Client.
 
 ## Usage
 
+### Configuration Sources (Priority: CLI > Env > File > Default)
+
+The server supports three configuration sources with the following priority:
+
+1. **Command Line Arguments** (highest priority)
+2. **Environment Variables**
+3. **Configuration File**
+4. **Default Values** (lowest priority)
+
+### Configuration Parameters
+
+| Config File | Environment Variable | CLI Argument |
+|-------------|---------------------|--------------|
+| `connection.mode` | `CONNECTION_MODE` | `--connection-mode` |
+| `connection.host` | `CONNECTION_HOST` | `--connection-host` |
+| `connection.port` | `CONNECTION_PORT` | `--connection-port` |
+| `connection.user` | `CONNECTION_USER` | `--connection-user` |
+| `connection.password` | `CONNECTION_PASSWORD` | `--connection-password` |
+| `connection.database` | `CONNECTION_DATABASE` | `--connection-database` |
+| `connection.service` | `CONNECTION_SERVICE` | `--connection-service` |
+| `safety.confirm_dangerous` | `SAFETY_CONFIRM_DANGEROUS` | `--safety-confirm-dangerous` |
+| `safety.dangerous_keywords` | `SAFETY_DANGEROUS_KEYWORDS` | `--safety-dangerous-keywords` |
+| `output.max_rows` | `OUTPUT_MAX_ROWS` | `--output-max-rows` |
+
 ### Start the Server
 
 ```bash
-# Clone and run locally
-git clone https://github.com/wrpys/oceanbase-mcp.git
-cd oceanbase-mcp
-npm install
-node dist/index.js --config /path/to/config.yaml
+# Method 1: All parameters via CLI (simplest)
+npx github:wrpys/oceanbase-mcp \
+  --connection-host localhost \
+  --connection-port 2883 \
+  --connection-user root \
+  --connection-password secret \
+  --connection-database test
 
-# Or run directly from Git (npx will clone and build automatically)
-npx github:wrpys/oceanbase-mcp --config /path/to/config.yaml
+# Method 2: Config file + env vars (sensitive info via env)
+npx github:wrpys/oceanbase-mcp --config config.yaml
+# Set env: CONNECTION_PASSWORD=secret
+
+# Method 3: Config file only (traditional)
+npx github:wrpys/oceanbase-mcp --config config.yaml
 ```
 
 ### MCP Client Configuration
 
-Add to your MCP client settings (e.g., Claude Desktop, VS Code extension):
-
-**Option 1: From local clone**
-
-```json
-{
-  "mcpServers": {
-    "oceanbase": {
-      "command": "node",
-      "args": ["path/to/oceanbase-mcp/dist/index.js", "--config", "path/to/config.yaml"]
-    }
-  }
-}
-```
-
-**Option 2: Direct from Git (recommended)**
+**Option 1: All parameters via CLI (recommended for simplicity)**
 
 ```json
 {
   "mcpServers": {
     "oceanbase": {
       "command": "npx",
-      "args": ["github:wrpys/oceanbase-mcp", "--config", "path/to/config.yaml"]
+      "args": [
+        "github:wrpys/oceanbase-mcp",
+        "--connection-host", "10.1.12.96",
+        "--connection-port", "2883",
+        "--connection-user", "PSOT1@oracle_utf8#dev_cj",
+        "--connection-password", "your_password",
+        "--connection-database", "slf"
+      ]
     }
   }
 }
 ```
 
-Note: When using `npx github:wrpys/oceanbase-mcp`, npx will automatically:
-1. Clone the repository to a temp directory
-2. Install dependencies (including `typescript` for build)
-3. Run `postinstall` script to build `dist/`
-4. Execute the server
+**Option 2: Config file + env vars (sensitive info via env)**
+
+```json
+{
+  "mcpServers": {
+    "oceanbase": {
+      "command": "npx",
+      "args": ["github:wrpys/oceanbase-mcp", "--config", "config.yaml"],
+      "env": {
+        "CONNECTION_PASSWORD": "your_password"
+      }
+    }
+  }
+}
+```
+
+**Option 3: Config file only**
+
+```json
+{
+  "mcpServers": {
+    "oceanbase": {
+      "command": "npx",
+      "args": ["github:wrpys/oceanbase-mcp", "--config", "config.yaml"]
+    }
+  }
+}
+```
 
 ## Available Tools
 

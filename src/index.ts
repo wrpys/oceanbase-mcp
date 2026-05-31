@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { loadConfig } from './config/loader.js';
 import { MySQLAdapter } from './adapters/mysql.js';
 import { OracleAdapter } from './adapters/oracle.js';
-import type { DatabaseAdapter, SafetyConfig, OutputConfig } from './types/index.js';
+import type { DatabaseAdapter, SafetyConfig, OutputConfig, Config } from './types/index.js';
 import { DEFAULT_SAFETY_CONFIG, DEFAULT_OUTPUT_CONFIG } from './types/index.js';
 import { SafetyGuard } from './safety/guard.js';
 import { formatAsMarkdownTable } from './formatter/markdown.js';
@@ -210,26 +210,9 @@ function formatDMLConfirmation(
 }
 
 /**
- * 解析命令行参数
- */
-function parseArgs(): { configPath: string } {
-  const args = process.argv.slice(2);
-  let configPath = './config.yaml';
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--config' || args[i] === '-c') {
-      configPath = args[i + 1];
-      i++;
-    }
-  }
-
-  return { configPath };
-}
-
-/**
  * 创建数据库适配器
  */
-async function createAdapter(config: ReturnType<typeof loadConfig>): Promise<DatabaseAdapter> {
+async function createAdapter(config: Config): Promise<DatabaseAdapter> {
   const { connection } = config;
 
   if (connection.mode === 'mysql') {
@@ -737,12 +720,8 @@ function registerTools(
  */
 async function main() {
   try {
-    // 解析命令行参数
-    const { configPath } = parseArgs();
-    console.error(`Loading config from: ${configPath}`);
-
-    // 加载配置
-    const config = loadConfig(configPath);
+    // 加载配置（命令行参数 > 环境变量 > 配置文件 > 默认值）
+    const config = loadConfig();
     console.error(`Database mode: ${config.connection.mode}`);
 
     // 创建适配器

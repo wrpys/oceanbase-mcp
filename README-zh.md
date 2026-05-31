@@ -115,54 +115,99 @@ connection:
 
 ## 使用方法
 
+### 配置来源（优先级：命令行 > 环境变量 > 配置文件 > 默认值）
+
+服务器支持三种配置来源，优先级如下：
+
+1. **命令行参数**（最高优先级）
+2. **环境变量**
+3. **配置文件**
+4. **默认值**（最低优先级）
+
+### 配置参数对照表
+
+| 配置文件 | 环境变量 | 命令行参数 |
+|----------|---------|-----------|
+| `connection.mode` | `CONNECTION_MODE` | `--connection-mode` |
+| `connection.host` | `CONNECTION_HOST` | `--connection-host` |
+| `connection.port` | `CONNECTION_PORT` | `--connection-port` |
+| `connection.user` | `CONNECTION_USER` | `--connection-user` |
+| `connection.password` | `CONNECTION_PASSWORD` | `--connection-password` |
+| `connection.database` | `CONNECTION_DATABASE` | `--connection-database` |
+| `connection.service` | `CONNECTION_SERVICE` | `--connection-service` |
+| `safety.confirm_dangerous` | `SAFETY_CONFIRM_DANGEROUS` | `--safety-confirm-dangerous` |
+| `safety.dangerous_keywords` | `SAFETY_DANGEROUS_KEYWORDS` | `--safety-dangerous-keywords` |
+| `output.max_rows` | `OUTPUT_MAX_ROWS` | `--output-max-rows` |
+
 ### 启动服务器
 
 ```bash
-# 克隆并本地运行
-git clone https://github.com/wrpys/oceanbase-mcp.git
-cd oceanbase-mcp
-npm install
-node dist/index.js --config /path/to/config.yaml
+# 方式 1：全部参数通过命令行传递（最简洁）
+npx github:wrpys/oceanbase-mcp \
+  --connection-host localhost \
+  --connection-port 2883 \
+  --connection-user root \
+  --connection-password secret \
+  --connection-database test
 
-# 或直接从 Git 运行（npx 会自动克隆并构建）
-npx github:wrpys/oceanbase-mcp --config /path/to/config.yaml
+# 方式 2：配置文件 + 环境变量（敏感信息通过环境变量）
+npx github:wrpys/oceanbase-mcp --config config.yaml
+# 设置环境变量：CONNECTION_PASSWORD=secret
+
+# 方式 3：仅使用配置文件（传统方式）
+npx github:wrpys/oceanbase-mcp --config config.yaml
 ```
 
 ### MCP 客户端配置
 
-添加到 MCP 客户端设置（如 Claude Desktop、VS Code 扩展）：
-
-**方式 1：从本地克隆运行**
-
-```json
-{
-  "mcpServers": {
-    "oceanbase": {
-      "command": "node",
-      "args": ["path/to/oceanbase-mcp/dist/index.js", "--config", "path/to/config.yaml"]
-    }
-  }
-}
-```
-
-**方式 2：直接从 Git 运行（推荐）**
+**方式 1：全部参数通过命令行传递（推荐，最简洁）**
 
 ```json
 {
   "mcpServers": {
     "oceanbase": {
       "command": "npx",
-      "args": ["github:wrpys/oceanbase-mcp", "--config", "path/to/config.yaml"]
+      "args": [
+        "github:wrpys/oceanbase-mcp",
+        "--connection-host", "10.1.12.96",
+        "--connection-port", "2883",
+        "--connection-user", "PSOT1@oracle_utf8#dev_cj",
+        "--connection-password", "your_password",
+        "--connection-database", "slf"
+      ]
     }
   }
 }
 ```
 
-注意：使用 `npx github:wrpys/oceanbase-mcp` 时，npx 会自动：
-1. 克隆仓库到临时目录
-2. 安装依赖（包括构建所需的 `typescript`）
-3. 运行 `postinstall` 脚本构建 `dist/`
-4. 执行服务器
+**方式 2：配置文件 + 环境变量（敏感信息通过环境变量）**
+
+```json
+{
+  "mcpServers": {
+    "oceanbase": {
+      "command": "npx",
+      "args": ["github:wrpys/oceanbase-mcp", "--config", "config.yaml"],
+      "env": {
+        "CONNECTION_PASSWORD": "your_password"
+      }
+    }
+  }
+}
+```
+
+**方式 3：仅使用配置文件**
+
+```json
+{
+  "mcpServers": {
+    "oceanbase": {
+      "command": "npx",
+      "args": ["github:wrpys/oceanbase-mcp", "--config", "config.yaml"]
+    }
+  }
+}
+```
 
 ## 可用工具
 
