@@ -1,7 +1,7 @@
 # OceanBase MCP Server
 
-[![npm version](https://badge.fury.io/js/oceanbase-mcp.svg)](https://badge.fury.io/js/oceanbase-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub](https://img.shields.io/badge/GitHub-wrpys%2Foceanbase--mcp-blue)](https://github.com/wrpys/oceanbase-mcp)
 
 MCP (Model Context Protocol) server for OceanBase database. Supports both MySQL and Oracle compatibility modes with comprehensive safety guards and DML operations.
 
@@ -18,17 +18,26 @@ MCP (Model Context Protocol) server for OceanBase database. Supports both MySQL 
 
 ## Installation
 
+### From Git Repository (Recommended)
+
+Clone and build locally:
+
 ```bash
-npm install oceanbase-mcp
+git clone https://github.com/wrpys/oceanbase-mcp.git
+cd oceanbase-mcp
+npm install              # Automatically builds via postinstall script
 ```
 
-Or clone and build locally:
+Or use directly with npx from Git:
 
 ```bash
-git clone https://github.com/your-org/oceanbase-mcp.git
-cd oceanbase-mcp
-npm install
-npm run build
+npx github:wrpys/oceanbase-mcp --config /path/to/config.yaml
+```
+
+### From npm (when published)
+
+```bash
+npm install oceanbase-mcp
 ```
 
 ## Configuration
@@ -109,16 +118,21 @@ Note: Native Oracle mode requires installing Oracle Instant Client.
 ### Start the Server
 
 ```bash
-# Using npx
-npx oceanbase-mcp --config /path/to/config.yaml
-
-# Or after build
+# Clone and run locally
+git clone https://github.com/wrpys/oceanbase-mcp.git
+cd oceanbase-mcp
+npm install
 node dist/index.js --config /path/to/config.yaml
+
+# Or run directly from Git (npx will clone and build automatically)
+npx github:wrpys/oceanbase-mcp --config /path/to/config.yaml
 ```
 
 ### MCP Client Configuration
 
 Add to your MCP client settings (e.g., Claude Desktop, VS Code extension):
+
+**Option 1: From local clone**
 
 ```json
 {
@@ -130,6 +144,25 @@ Add to your MCP client settings (e.g., Claude Desktop, VS Code extension):
   }
 }
 ```
+
+**Option 2: Direct from Git (recommended)**
+
+```json
+{
+  "mcpServers": {
+    "oceanbase": {
+      "command": "npx",
+      "args": ["github:wrpys/oceanbase-mcp", "--config", "path/to/config.yaml"]
+    }
+  }
+}
+```
+
+Note: When using `npx github:wrpys/oceanbase-mcp`, npx will automatically:
+1. Clone the repository to a temp directory
+2. Install dependencies (including `typescript` for build)
+3. Run `postinstall` script to build `dist/`
+4. Execute the server
 
 ## Available Tools
 
@@ -446,5 +479,5 @@ Contributions are welcome! Please read the contributing guidelines before submit
 ## Support
 
 For issues and questions:
-- GitHub Issues: [https://github.com/your-org/oceanbase-mcp/issues](https://github.com/your-org/oceanbase-mcp/issues)
+- GitHub Issues: [https://github.com/wrpys/oceanbase-mcp/issues](https://github.com/wrpys/oceanbase-mcp/issues)
 - OceanBase Documentation: [https://oceanbase.com/docs](https://oceanbase.com/docs)

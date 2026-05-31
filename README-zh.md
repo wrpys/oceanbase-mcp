@@ -1,7 +1,7 @@
 # OceanBase MCP Server
 
-[![npm version](https://badge.fury.io/js/oceanbase-mcp.svg)](https://badge.fury.io/js/oceanbase-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub](https://img.shields.io/badge/GitHub-wrpys%2Foceanbase--mcp-blue)](https://github.com/wrpys/oceanbase-mcp)
 
 OceanBase 数据库的 MCP (Model Context Protocol) 服务器。支持 MySQL 和 Oracle 兼容模式，提供完善的安全防护和 DML 操作功能。
 
@@ -18,17 +18,26 @@ OceanBase 数据库的 MCP (Model Context Protocol) 服务器。支持 MySQL 和
 
 ## 安装
 
+### 从 Git 仓库安装（推荐）
+
+克隆并本地构建：
+
 ```bash
-npm install oceanbase-mcp
+git clone https://github.com/wrpys/oceanbase-mcp.git
+cd oceanbase-mcp
+npm install              # 通过 postinstall 脚本自动构建
 ```
 
-或克隆并本地构建：
+或直接通过 npx 从 Git 运行：
 
 ```bash
-git clone https://github.com/your-org/oceanbase-mcp.git
-cd oceanbase-mcp
-npm install
-npm run build
+npx github:wrpys/oceanbase-mcp --config /path/to/config.yaml
+```
+
+### 从 npm 安装（发布后）
+
+```bash
+npm install oceanbase-mcp
 ```
 
 ## 配置
@@ -109,16 +118,21 @@ connection:
 ### 启动服务器
 
 ```bash
-# 使用 npx
-npx oceanbase-mcp --config /path/to/config.yaml
-
-# 或构建后运行
+# 克隆并本地运行
+git clone https://github.com/wrpys/oceanbase-mcp.git
+cd oceanbase-mcp
+npm install
 node dist/index.js --config /path/to/config.yaml
+
+# 或直接从 Git 运行（npx 会自动克隆并构建）
+npx github:wrpys/oceanbase-mcp --config /path/to/config.yaml
 ```
 
 ### MCP 客户端配置
 
 添加到 MCP 客户端设置（如 Claude Desktop、VS Code 扩展）：
+
+**方式 1：从本地克隆运行**
 
 ```json
 {
@@ -130,6 +144,25 @@ node dist/index.js --config /path/to/config.yaml
   }
 }
 ```
+
+**方式 2：直接从 Git 运行（推荐）**
+
+```json
+{
+  "mcpServers": {
+    "oceanbase": {
+      "command": "npx",
+      "args": ["github:wrpys/oceanbase-mcp", "--config", "path/to/config.yaml"]
+    }
+  }
+}
+```
+
+注意：使用 `npx github:wrpys/oceanbase-mcp` 时，npx 会自动：
+1. 克隆仓库到临时目录
+2. 安装依赖（包括构建所需的 `typescript`）
+3. 运行 `postinstall` 脚本构建 `dist/`
+4. 执行服务器
 
 ## 可用工具
 
