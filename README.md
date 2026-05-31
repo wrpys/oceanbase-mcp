@@ -160,15 +160,45 @@ npx github:wrpys/oceanbase-mcp --config config.yaml
 
 ### MCP Client Configuration
 
+#### Claude Code (Recommended: use `claude mcp add`)
+
+由于本 MCP Server 通过 stdio 通信且使用命令行参数配置，推荐使用 `claude mcp add` 命令直接注册，无需手动编辑 `mcp.json` 文件：
+
+```bash
+# MySQL 兼容模式
+claude mcp add oceanbase-mysql -- \
+  node "/path/to/oceanbase-mcp/dist/index.js" \
+  --connection-host localhost \
+  --connection-port 2881 \
+  --connection-user root \
+  --connection-password your_password \
+  --connection-database test
+
+# Oracle 兼容模式（通过 MySQL 协议端口）
+claude mcp add oceanbase-oracle -- \
+  node "/path/to/oceanbase-mcp/dist/index.js" \
+  --connection-host 10.1.12.110 \
+  --connection-port 2883 \
+  --connection-user "PSOT1@oracle_utf8#dev_cj" \
+  --connection-password your_password \
+  --connection-database PSOT1
+```
+
+> **提示：** 将 `/path/to/oceanbase-mcp` 替换为实际的安装路径，例如 `E:/job/popo/mcp/oceanbase-mcp`。也可以用 `npx github:wrpys/oceanbase-mcp` 替代 `node .../dist/index.js`，但本地构建方式启动更快。
+
+#### 其他 MCP 客户端（mcp.json 配置）
+
+如果使用其他支持 MCP 协议的客户端，可以在 `mcp.json` 中配置：
+
 **Option 1: All parameters via CLI (recommended for simplicity)**
 
 ```json
 {
   "mcpServers": {
     "oceanbase": {
-      "command": "npx",
+      "command": "node",
       "args": [
-        "github:wrpys/oceanbase-mcp",
+        "/path/to/oceanbase-mcp/dist/index.js",
         "--connection-host", "10.1.12.96",
         "--connection-port", "2883",
         "--connection-user", "PSOT1@oracle_utf8#dev_cj",
@@ -186,8 +216,8 @@ npx github:wrpys/oceanbase-mcp --config config.yaml
 {
   "mcpServers": {
     "oceanbase": {
-      "command": "npx",
-      "args": ["github:wrpys/oceanbase-mcp", "--config", "config.yaml"],
+      "command": "node",
+      "args": ["/path/to/oceanbase-mcp/dist/index.js", "--config", "config.yaml"],
       "env": {
         "CONNECTION_PASSWORD": "your_password"
       }
@@ -202,8 +232,8 @@ npx github:wrpys/oceanbase-mcp --config config.yaml
 {
   "mcpServers": {
     "oceanbase": {
-      "command": "npx",
-      "args": ["github:wrpys/oceanbase-mcp", "--config", "config.yaml"]
+      "command": "node",
+      "args": ["/path/to/oceanbase-mcp/dist/index.js", "--config", "config.yaml"]
     }
   }
 }
